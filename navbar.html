@@ -1,0 +1,50 @@
+<nav
+  class="navbar navbar-expand-lg navbar-light bg-transparent fixed-top"
+  id="navbar"
+>
+  <div class="container-fluid">
+    <a class="navbar-brand" id="title_navbar">Syncord</a>
+    <button
+      class="navbar-toggler"
+      type="button"
+      data-bs-toggle="collapse"
+      data-bs-target="#navbarSupportedContent"
+      aria-controls="navbarSupportedContent"
+      aria-expanded="false"
+      aria-label="Toggle navigation"
+    >
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item">
+          <a
+            class="btn btn-outline-light"
+            id="register_button"
+            aria-current="page"
+            href="{{ url_for('index') }}"
+            >Cadastro</a
+          >
+        </li>
+        <li class="nav-item">
+          <a
+            class="btn btn-outline-light"
+            id="product_button"
+            aria-current="page"
+            href="{{ url_for('data') }}"
+            >Produtos</a
+          >
+        </li>
+      </ul>
+      <form class="d-flex">
+        <a
+          class="btn btn-outline-light"
+          id="out_button"
+          aria-current="page"
+          href="{{ url_for('login') }}"
+          ><img src="/static/logout.png" width="20px" height="20px"
+        /></a>
+      </form>
+    </div>
+  </div>
+</nav>
