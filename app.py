@@ -1,10 +1,10 @@
-from flask import Flask, flash, render_template, request, redirect, url_for
-import psycopg2
+from flask import Flask, flash, render_template, request, redirect, url_for # Módulos e funções Flask para a criação de um aplicativo Web.
+import psycopg2 # Módulo para interação com banco de dados PostgreSQL
 
-# Chave secreta para a utilização da mensagem de erro flash
-app = Flask(__name__)
-app.secret_key = "my_secret_key"
 
+app = Flask(__name__) # Cria o nome do aplicativo, essencial para o Flask localizar recursos associados, como templates
+app.secret_key = "my_secret_key" # Define uma chave secreta para o aplicativo Flask é usada para criptografar e proteger sessões e cookies
+ 
 
 # Configurações do banco de dados
 db_config = {
@@ -15,71 +15,28 @@ db_config = {
 }
 
 
-# Mostra dados
+# Função que mostra dados da tabela "data" 
 def fetch_data_from_db():
-    conn = psycopg2.connect(**db_config)
-    cursor = conn.cursor()
+    conn = psycopg2.connect(**db_config) # Estabelece conexão com banco de dados PostgreSQL, acessando "db_config" que foi especificado anteriormente
+    cursor = conn.cursor() # Criado objeto do tipo "cursor" para realizar comandos em SQL
 
-    cursor.execute("SELECT * FROM data")
-    data = cursor.fetchall()
+    cursor.execute("SELECT * FROM data") # Realiza o comando SQL para recuperar todos os dados da tabela "data"
+    data = cursor.fetchall() # Recupera todos os registros resultantes da consulta SQL em uma lista chamada "data"
 
-    conn.close()
-    return data
-
-
-# Página index e suas verificações
-@app.route("/index", methods=["GET", "POST"])
-def index():
-    if request.method == "POST":
-        description = request.form["description"]
-        quantity = request.form["quantity"]
-        code = request.form["code"]
-        price = request.form["price"]
-        category = request.form["category"]
-        observation = request.form["observation"]
-
-        # Verifique se o preço é um número com vírgula
-        if not is_valid_price(price):
-            return render_template(
-                "index.html",
-                saved_data=fetch_data_from_db(),
-                error_message="O preço deve ser um número válido.",
-            )
-
-        # Processar o upload da imagem
-        photo = request.files.get("photo")
-        if photo:
-            photo_data = photo.read()
-        else:
-            photo_data = None
-
-        save_data(description, observation, code, price, quantity, category, photo_data)
-        return redirect(url_for("index"))
-
-    saved_data = fetch_data_from_db()
-
-    return render_template("index.html", save_data=saved_data)
+    conn.close() # Fecha a conexão com o banco de dados após a recuperação dos dados
+    return data # Retorna a lista de dados recuperados da tabela "data"
 
 
-# Função para verificar se o preço é um número válido
-def is_valid_price(price):
-    try:
-        # Tente converter o preço para um número de ponto flutuante
-        float_price = float(price)
-        return True
-    except ValueError:
-        return False
-
-
-# Página login e suas verificações
-@app.route("/", methods=["GET", "POST"])
+# Página login
+@app.route("/", methods=["GET", "POST"]) # Cria a rota raiz "/" que responde a solicitações GET e POST, será a primeira tela do sistema
 def login():
-    if request.method == "POST":
+    if request.method == "POST": # Verifica se a solicitação HTTP é do tipo POST, Isso é usado para distinguir entre o carregamento inicial da página (GET) e o envio de um formulário (POST)
         username = request.form["username"]
         password = request.form["password"]
+        # Obtém os valores digitados nos formulários
 
-        conn = psycopg2.connect(**db_config)
-        cursor = conn.cursor()
+        conn = psycopg2.connect(**db_config) # Estabelece conexão com banco de dados PostgreSQL, acessando "db_config" que foi especificado anteriormente
+        cursor = conn.cursor() # Criado objeto do tipo "cursor" para realizar comandos em SQL
 
         cursor.execute(
             "SELECT * FROM users WHERE username = %s AND password = %s",
@@ -97,6 +54,36 @@ def login():
             flash("Login ou senha incorretos. Tente novamente.")
 
     return render_template("login.html")
+
+
+
+
+# Página index
+@app.route("/index", methods=["GET", "POST"]) # Cria a rota chamada "/index" que responde a solicitações GET e POST
+def index():
+    if request.method == "POST": # Verifica se a solicitação HTTP é do tipo POST, Isso é usado para distinguir entre o carregamento inicial da página (GET) e o envio de um formulário (POST)
+        description = request.form["description"]
+        quantity = request.form["quantity"]
+        code = request.form["code"]
+        price = request.form["price"]
+        category = request.form["category"]
+        observation = request.form["observation"]
+        # Os campos acima obtém as informações do formulário na tela de "index.html" e armazena em uma variável
+
+        # Processar o upload da imagem
+        photo = request.files.get("photo") # Recebe o arquivo da foto enviado no formulário "photo"
+        if photo:
+            photo_data = photo.read() # Caso exista foto no formulário é executado essa linha e a foto é salva no banco
+        else:
+            photo_data = None # Caso não exista foto no formulário é executado essa linha e nada é salvo
+
+        save_data(description, observation, code, price, quantity, category, photo_data) # Executa a função "save_data" para salvar todos os dados inseridos nos formulários
+        return redirect(url_for("index")) # Após a execução de "save_data" é redirecionado para o próprio "index", ou seja, salva os dados e permanece na mesma tela
+
+    saved_data = fetch_data_from_db() # Utiliza a função para recuperar os dados cadastrados e mostrar na tela de "index"
+
+    return render_template("index.html", save_data=saved_data) # Renderiza a página "index.html"   
+
 
 
 # Rota para a página "data.html" através do navbar
