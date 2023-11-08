@@ -9,7 +9,7 @@ import psycopg2
 class TelegramBot:
     # Token bot
     def __init__(self):
-        token = "6403075811:AAGzqzSPMluNJAEYMqbOzooZz-ymgK6hfpk"
+        token = "TOKEN_BOT"
         self.url_base = f"https://api.telegram.org/bot{token}/"
 
     # Inicia o bot
