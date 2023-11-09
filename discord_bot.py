@@ -5,7 +5,7 @@ from discord.ext import commands
 from app import db_config
 
 # Token do seu bot do Discord
-TOKEN = "TOKEN_BOT"
+TOKEN = "SEU_TOKEN"
 
 # Criar um objeto intents
 intents = discord.Intents.default()
