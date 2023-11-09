@@ -27,100 +27,52 @@ def fetch_data_from_db():
     return data # Retorna a lista de dados recuperados da tabela "data"
 
 
-# Página login
-@app.route("/", methods=["GET", "POST"]) # Cria a rota raiz "/" que responde a solicitações GET e POST, será a primeira tela do sistema
-def login():
-    if request.method == "POST": # Verifica se a solicitação HTTP é do tipo POST, Isso é usado para distinguir entre o carregamento inicial da página (GET) e o envio de um formulário (POST)
-        username = request.form["username"]
-        password = request.form["password"]
-        # Obtém os valores digitados nos formulários
+# Coleta dados e cadastra no banco
+def save_data(description, observation, code, price, quantity, category, photo_data):
+    conn = psycopg2.connect(**db_config) # Estabelece conexão com banco de dados PostgreSQL, acessando "db_config" que foi especificado anteriormente
+    cursor = conn.cursor() # Criado objeto do tipo "cursor" para realizar comandos em SQL
 
-        conn = psycopg2.connect(**db_config) # Estabelece conexão com banco de dados PostgreSQL, acessando "db_config" que foi especificado anteriormente
-        cursor = conn.cursor() # Criado objeto do tipo "cursor" para realizar comandos em SQL
-
-        cursor.execute(
-            "SELECT * FROM users WHERE username = %s AND password = %s",
-            (username, password),
-        )
-        user = cursor.fetchone()
-
-        conn.close()
-
-        if user:
-            # Redirecione para a página principal se usuário for válido
-            return redirect(url_for("index"))
-        else:
-            # Mensagem de erro
-            flash("Login ou senha incorretos. Tente novamente.")
-
-    return render_template("login.html")
-
-
-
-
-# Página index
-@app.route("/index", methods=["GET", "POST"]) # Cria a rota chamada "/index" que responde a solicitações GET e POST
-def index():
-    if request.method == "POST": # Verifica se a solicitação HTTP é do tipo POST, Isso é usado para distinguir entre o carregamento inicial da página (GET) e o envio de um formulário (POST)
-        description = request.form["description"]
-        quantity = request.form["quantity"]
-        code = request.form["code"]
-        price = request.form["price"]
-        category = request.form["category"]
-        observation = request.form["observation"]
-        # Os campos acima obtém as informações do formulário na tela de "index.html" e armazena em uma variável
-
-        # Processar o upload da imagem
-        photo = request.files.get("photo") # Recebe o arquivo da foto enviado no formulário "photo"
-        if photo:
-            photo_data = photo.read() # Caso exista foto no formulário é executado essa linha e a foto é salva no banco
-        else:
-            photo_data = None # Caso não exista foto no formulário é executado essa linha e nada é salvo
-
-        save_data(description, observation, code, price, quantity, category, photo_data) # Executa a função "save_data" para salvar todos os dados inseridos nos formulários
-        return redirect(url_for("index")) # Após a execução de "save_data" é redirecionado para o próprio "index", ou seja, salva os dados e permanece na mesma tela
-
-    saved_data = fetch_data_from_db() # Utiliza a função para recuperar os dados cadastrados e mostrar na tela de "index"
-
-    return render_template("index.html", save_data=saved_data) # Renderiza a página "index.html"   
-
-
-
-# Rota para a página "data.html" através do navbar
-@app.route("/data")
-def data():
-    saved_data = fetch_data_from_db()
-
-    return render_template("data.html", saved_data=saved_data)
-
-
-@app.route("/delete/<int:id>", methods=["POST"])
-def delete_data(id):
-    conn = psycopg2.connect(**db_config)
-    cursor = conn.cursor()
-
+    # Realiza o comando SQL para inserir os dados
     try:
-        # Execute a instrução SQL para excluir o registro com base no ID
-        delete_query = "DELETE FROM data WHERE id = %s"
-        cursor.execute(delete_query, (id,))
+        insert_query = "INSERT INTO data (description, observation, code, price, quantity, category, photo) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+        cursor.execute(
+            insert_query,
+            (description, observation, code, price, quantity, category, photo_data),
+        )
 
-        # Commit para confirmar a exclusão no banco de dados
         conn.commit()
-
     except Exception as e:
         conn.rollback()
+    finally:
+        conn.close() # Fecha a conexão com o banco de dados criada com o "cursor"
+
+
+# Exclusão por ID
+@app.route("/delete/<int:id>", methods=["POST"]) # Cria a rota chamada "/delete" que responde a solicitações POST e recebe um ID para exclusão
+def delete_data(id):
+    conn = psycopg2.connect(**db_config) # Estabelece conexão com banco de dados PostgreSQL, acessando "db_config" que foi especificado anteriormente
+    cursor = conn.cursor() # Criado objeto do tipo "cursor" para realizar comandos em SQL
+
+    try:
+        delete_query = "DELETE FROM data WHERE id = %s"  # Execute a instrução SQL para excluir o registro com base no ID
+        cursor.execute(delete_query, (id,))
+
+        conn.commit() # Commit para confirmar a exclusão no banco de dados
+
+    except Exception as e:
+        conn.rollback() # Caso aconteça erro, toda alteração realizada é desfeita
 
     finally:
-        conn.close()
+        conn.close() # Fecha a conexão com o banco de dados criada com o "cursor"
 
-    return redirect(url_for("data"))
+    return redirect(url_for("data")) # Após a exclusão usuário permanece na mesma página
 
 
 # Rota para a página de edição
-@app.route("/edit/<int:id>", methods=["GET", "POST"])
+@app.route("/edit/<int:id>", methods=["GET", "POST"]) # Cria a rota chamada "/edit" que responde a solicitações GET e POST e recebe um ID para edição
 def edit_data(id):
-    conn = psycopg2.connect(**db_config)
-    cursor = conn.cursor()
+    conn = psycopg2.connect(**db_config) # Estabelece conexão com banco de dados PostgreSQL, acessando "db_config" que foi especificado anteriormente
+    cursor = conn.cursor() # Criado objeto do tipo "cursor" para realizar comandos em SQL
 
     if request.method == "POST":
         # Receba os novos valores dos campos do formulário de edição
@@ -131,13 +83,6 @@ def edit_data(id):
         new_quantity = request.form["new_quantity"]
         new_category = request.form["new_category"]
         new_photo_data = None
-
-        if not is_valid_price(new_price):
-            return render_template(
-                "index.html",
-                saved_data=fetch_data_from_db(),
-                error_message="O preço deve ser um número válido.",
-            )
 
     # Processar o upload da imagem, se houver
     if "new_photo" in request.files:
@@ -170,43 +115,88 @@ def edit_data(id):
             conn.commit()
 
         except Exception as e:
-            conn.rollback()
+            conn.rollback() # Caso aconteça erro, toda alteração realizada é desfeita
         finally:
-            conn.close()
+            conn.close() # Fecha a conexão com o banco de dados criada com o "cursor"
 
-        return redirect(url_for("data"))
+        return redirect(url_for("data")) # Após a edição o usuário permanece na mesma página 
 
     # Se for um pedido GET, exiba a página de edição com os dados atuais
     cursor.execute("SELECT * FROM data WHERE id = %s", (id,))
     data = cursor.fetchone()
-    conn.close()
+    conn.close() # Fecha a conexão com o banco de dados criada com o "cursor"
 
     if data:
-        return render_template("edit.html", data=data)
+        return render_template("edit.html", data=data) # Quando selecionar o botão de edição o usuário é redirecionado para essa página
     else:
         flash("Registro não encontrado.")
         return redirect(url_for("data"))
 
 
-# Coleta dados e cadastra no banco
-def save_data(description, observation, code, price, quantity, category, photo_data):
-    conn = psycopg2.connect(**db_config)
-    cursor = conn.cursor()
+# Página login
+@app.route("/", methods=["GET", "POST"]) # Cria a rota raiz "/" que responde a solicitações GET e POST, será a primeira tela do sistema
+def login():
+    if request.method == "POST": # Verifica se a solicitação HTTP é do tipo POST, Isso é usado para distinguir entre o carregamento inicial da página (GET) e o envio de um formulário (POST)
+        username = request.form["username"]
+        password = request.form["password"]
+        # Obtém os valores digitados nos formulários
 
-    try:
-        insert_query = "INSERT INTO data (description, observation, code, price, quantity, category, photo) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+        conn = psycopg2.connect(**db_config) # Estabelece conexão com banco de dados PostgreSQL, acessando "db_config" que foi especificado anteriormente
+        cursor = conn.cursor() # Criado objeto do tipo "cursor" para realizar comandos em SQL
+
         cursor.execute(
-            insert_query,
-            (description, observation, code, price, quantity, category, photo_data),
+            "SELECT * FROM users WHERE username = %s AND password = %s",
+            (username, password),
         )
+        user = cursor.fetchone()
 
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        print("Erro ao salvar os dados:", e)
-    finally:
-        conn.close()
+        conn.close() # Fecha a conexão com o banco de dados criada com o "cursor"
+
+        if user:
+            # Redirecione para a página principal se usuário for válido
+            return redirect(url_for("index"))
+        else:
+            # Mensagem de erro
+            flash("Login ou senha incorretos. Tente novamente.")
+
+    return render_template("login.html")
 
 
+# Página index
+@app.route("/index", methods=["GET", "POST"]) # Cria a rota chamada "/index" que responde a solicitações GET e POST
+def index():
+    if request.method == "POST": # Verifica se a solicitação HTTP é do tipo POST, Isso é usado para distinguir entre o carregamento inicial da página (GET) e o envio de um formulário (POST)
+        description = request.form["description"]
+        quantity = request.form["quantity"]
+        code = request.form["code"]
+        price = request.form["price"]
+        category = request.form["category"]
+        observation = request.form["observation"]
+        # Os campos acima obtém as informações do formulário na tela de "index.html" e armazena em uma variável
+
+        # Processar o upload da imagem
+        photo = request.files.get("photo") # Recebe o arquivo da foto enviado no formulário "photo"
+        if photo:
+            photo_data = photo.read() # Caso exista foto no formulário é executado essa linha e a foto é salva no banco
+        else:
+            photo_data = None # Caso não exista foto no formulário é executado essa linha e nada é salvo
+
+        save_data(description, observation, code, price, quantity, category, photo_data) # Executa a função "save_data" para salvar todos os dados inseridos nos formulários
+        return redirect(url_for("index")) # Após a execução de "save_data" é redirecionado para o próprio "index", ou seja, salva os dados e permanece na mesma tela
+
+    saved_data = fetch_data_from_db() # Utiliza a função para recuperar os dados cadastrados e mostrar na tela de "index"
+
+    return render_template("index.html", save_data=saved_data) # Renderiza a página "index.html"   
+
+
+# Rota para a página "data.html" através do navbar
+@app.route("/data") # Cria a rota chamada "/data" que responde a solicitações GET
+def data():
+    saved_data = fetch_data_from_db() # Retorna função de visualização de dados
+
+    return render_template("data.html", saved_data=saved_data) # Renderiza a página "data.html"
+
+
+# Executa o aplicativo logo que o arquvio Python também é executado
 if __name__ == "__main__":
     app.run(debug=True)
